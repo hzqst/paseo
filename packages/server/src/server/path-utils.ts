@@ -1,5 +1,6 @@
 import { homedir } from "node:os";
 import { isAbsolute, posix, resolve, win32 } from "node:path";
+import { stripPosixDrivePrefix } from "@getpaseo/protocol/path-utils";
 
 export function assertAbsolutePath(cwd: string): void {
   if (!posix.isAbsolute(cwd) && !win32.isAbsolute(cwd)) {
@@ -19,8 +20,22 @@ export function expandUserPath(value: string): string {
   return resolve(trimmed);
 }
 
+/**
+ * Clients send absolute Windows paths as `/D:/repo/x` when the path came from a
+ * `file://` URL pathname or a `/`-prefixed link. On Windows `isAbsolute` accepts
+ * that shape and `resolve` folds it into `C:\D:\repo\x`, which no workspace root
+ * can contain. On POSIX `/c:/x` is a real absolute path, so the rewrite is
+ * Windows-only.
+ */
+export function normalizeRequestedPath(
+  value: string,
+  platform: NodeJS.Platform = process.platform,
+): string {
+  return platform === "win32" ? stripPosixDrivePrefix(value) : value;
+}
+
 export function resolvePathFromBase(baseCwd: string, requestedPath: string): string {
-  const trimmed = requestedPath.trim();
+  const trimmed = normalizeRequestedPath(requestedPath.trim());
   if (hasHomePrefix(trimmed) || isAbsolute(trimmed)) {
     return expandUserPath(trimmed);
   }
