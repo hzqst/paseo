@@ -323,6 +323,19 @@ describe("parseAssistantFileLink", () => {
     });
   });
 
+  it("parses POSIX-flavored Windows hrefs inside the active workspace", () => {
+    expect(
+      parseAssistantFileLink("/D:/work/sample-repo/docs/guide.md#L12-L20", {
+        workspaceRoot: "d:\\work\\sample-repo",
+      }),
+    ).toEqual({
+      raw: "/D:/work/sample-repo/docs/guide.md#L12-L20",
+      path: "D:/work/sample-repo/docs/guide.md",
+      lineStart: 12,
+      lineEnd: 20,
+    });
+  });
+
   it("allows file URLs even when they are outside the workspace root", () => {
     expect(
       parseAssistantFileLink("file:///tmp/outside.txt", {

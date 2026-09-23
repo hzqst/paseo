@@ -1,3 +1,4 @@
+import { stripPosixDrivePrefix } from "@getpaseo/protocol/path-utils";
 import { isAbsolutePath } from "@/utils/path";
 
 function safeDecodeURIComponent(value: string): string {
@@ -111,7 +112,7 @@ function normalizePathToken(value: string): string | null {
     return null;
   }
 
-  return trimmed.replace(/\\/g, "/");
+  return stripPosixDrivePrefix(trimmed.replace(/\\/g, "/"));
 }
 
 function parseLineFragment(value: string): Pick<InlinePathTarget, "lineStart" | "lineEnd"> | null {
@@ -672,11 +673,7 @@ function normalizeFileUrlPath(pathname: string): string | null {
     return null;
   }
 
-  if (/^\/[A-Za-z]:\//.test(decoded)) {
-    return decoded.slice(1);
-  }
-
-  return decoded;
+  return stripPosixDrivePrefix(decoded);
 }
 
 function normalizePathInput(value: string | undefined): string | null {
@@ -692,7 +689,7 @@ function normalizePathInput(value: string | undefined): string | null {
     return null;
   }
 
-  return trimmed.replace(/\\/g, "/").replace(/\/{2,}/g, "/");
+  return stripPosixDrivePrefix(trimmed.replace(/\\/g, "/").replace(/\/{2,}/g, "/"));
 }
 
 function resolvePathAgainstCwd(pathValue: string, cwd?: string): string | null {

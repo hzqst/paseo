@@ -1,3 +1,4 @@
+import { stripPosixDrivePrefix } from "@getpaseo/protocol/path-utils";
 import { isAbsolutePath } from "@/utils/path";
 
 export interface FilePreviewReadTarget {
@@ -61,7 +62,7 @@ export function resolveFilePreviewReadTarget(input: {
   path: string;
   workspaceRoot?: string;
 }): FilePreviewReadTarget | null {
-  const previewPath = input.path.trim();
+  const previewPath = stripPosixDrivePrefix(input.path.trim());
   if (!previewPath) {
     return null;
   }

@@ -34,6 +34,23 @@ async function createTempDir(prefix: string): Promise<string> {
 }
 
 describe("file explorer service", () => {
+  it.skipIf(process.platform !== "win32")(
+    "reads a workspace file whose requested path keeps the POSIX-flavored drive shape",
+    async () => {
+      const root = await createTempDir("paseo-file-explorer-");
+      try {
+        await writeFile(path.join(root, "guide.md"), "# guide\n", "utf8");
+        const posixDrivePath = `/${root.replace(/\\/g, "/")}/guide.md`;
+
+        const file = await readExplorerFile({ root, relativePath: posixDrivePath });
+
+        expect(file.content).toBe("# guide\n");
+      } finally {
+        await rm(root, { recursive: true, force: true });
+      }
+    },
+  );
+
   it("atomically writes an existing text file at the expected revision", async () => {
     const root = await createTempDir("paseo-file-write-");
     try {

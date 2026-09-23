@@ -62,6 +62,30 @@ describe("resolveFilePreviewReadTarget", () => {
     });
   });
 
+  it("uses the workspace cwd for POSIX-flavored Windows paths inside the workspace", () => {
+    expect(
+      resolveFilePreviewReadTarget({
+        path: "/D:/work/sample-repo/docs/guide.md",
+        workspaceRoot: "d:\\work\\sample-repo",
+      }),
+    ).toEqual({
+      cwd: "d:\\work\\sample-repo",
+      path: "D:/work/sample-repo/docs/guide.md",
+    });
+  });
+
+  it("uses the drive root for POSIX-flavored Windows paths outside the workspace", () => {
+    expect(
+      resolveFilePreviewReadTarget({
+        path: "/C:/Users/test/Desktop/file.txt",
+        workspaceRoot: "D:/repo",
+      }),
+    ).toEqual({
+      cwd: "C:/",
+      path: "C:/Users/test/Desktop/file.txt",
+    });
+  });
+
   it("rejects relative paths without an absolute workspace root", () => {
     expect(resolveFilePreviewReadTarget({ path: "src/app.ts" })).toBeNull();
     expect(
