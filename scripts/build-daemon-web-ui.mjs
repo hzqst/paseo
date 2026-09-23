@@ -17,17 +17,19 @@ function fmtMiB(bytes) {
   return `${(bytes / 1024 / 1024).toFixed(2)} MiB`;
 }
 
-function run(command, args, options) {
+function run(commandLine, options) {
   return new Promise((resolve, reject) => {
-    const child = spawn(command, args, {
+    // Always go through a shell: npm is a .cmd shim on Windows, which spawn cannot execute
+    // directly (EINVAL). The command line is a fixed literal, so nothing needs escaping.
+    const child = spawn(commandLine, {
       stdio: "inherit",
-      shell: false,
+      shell: true,
       ...options,
     });
     child.on("error", reject);
     child.on("close", (code) => {
       if (code !== 0) {
-        reject(new Error(`Command failed with exit code ${code}: ${command} ${args.join(" ")}`));
+        reject(new Error(`Command failed with exit code ${code}: ${commandLine}`));
         return;
       }
       resolve();
@@ -37,7 +39,7 @@ function run(command, args, options) {
 
 async function exportBrowserWebApp() {
   console.log("Exporting browser web app...");
-  await run("npm", ["run", "build:web", "--workspace=@getpaseo/app"], {
+  await run("npm run build:web --workspace=@getpaseo/app", {
     cwd: REPO_ROOT,
   });
 }
