@@ -1671,6 +1671,65 @@ describe("ClaudeAgentClient.listImportableSessions", () => {
     }
   });
 
+  test("uses the provider config directory instead of the daemon environment", async () => {
+    const providerConfigDir = await fs.mkdtemp(path.join(os.tmpdir(), "paseo-claude-provider-"));
+    const daemonConfigDir = await fs.mkdtemp(path.join(os.tmpdir(), "paseo-claude-daemon-"));
+    const previousConfigDir = process.env.CLAUDE_CONFIG_DIR;
+    process.env.CLAUDE_CONFIG_DIR = daemonConfigDir;
+
+    try {
+      const cwd = path.join(providerConfigDir, "workspace");
+      const projectDir = claudeProjectDirSync(cwd, { configDir: providerConfigDir });
+      const sessionId = "provider-scoped-session";
+      const sessionFile = path.join(projectDir, `${sessionId}.jsonl`);
+      await fs.mkdir(projectDir, { recursive: true });
+      await fs.writeFile(
+        sessionFile,
+        `${JSON.stringify({
+          isSidechain: false,
+          type: "user",
+          message: { role: "user", content: "Provider-scoped session" },
+          cwd,
+          sessionId,
+        })}\n`,
+        "utf-8",
+      );
+
+      const client = new ClaudeAgentClient({
+        logger: createTestLogger(),
+        resolveBinary: async () => "/test/claude/bin",
+        runtimeSettings: {
+          env: { CLAUDE_CONFIG_DIR: providerConfigDir },
+        },
+      });
+
+      await expect(client.listImportableSessions()).resolves.toEqual([
+        expect.objectContaining({
+          providerHandleId: sessionId,
+          cwd,
+        }),
+      ]);
+
+      const session = await client.createSession({ provider: "claude", cwd });
+      try {
+        const historyPath = (
+          session as unknown as { resolveHistoryPath: (id: string) => string | null }
+        ).resolveHistoryPath(sessionId);
+        expect(historyPath).toBe(sessionFile);
+      } finally {
+        await session.close();
+      }
+    } finally {
+      if (previousConfigDir === undefined) {
+        delete process.env.CLAUDE_CONFIG_DIR;
+      } else {
+        process.env.CLAUDE_CONFIG_DIR = previousConfigDir;
+      }
+      await fs.rm(providerConfigDir, { recursive: true, force: true });
+      await fs.rm(daemonConfigDir, { recursive: true, force: true });
+    }
+  });
+
   test("scopes candidates to the requested cwd before applying the limit", async () => {
     const tmpConfigDir = await fs.mkdtemp(path.join(os.tmpdir(), "paseo-claude-import-"));
     const previousConfigDir = process.env.CLAUDE_CONFIG_DIR;
