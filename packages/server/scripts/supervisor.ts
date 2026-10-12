@@ -1,4 +1,4 @@
-import { fork, spawn, type ChildProcess } from "child_process";
+import { fork, spawn, type ChildProcess, type ForkOptions } from "child_process";
 import path from "node:path";
 import {
   createStream as createRotatingFileStream,
@@ -284,17 +284,24 @@ export function runSupervisor(options: SupervisorOptions): SupervisorController 
 
     const spawnSpec = resolveWorkerSpawnSpec?.(workerEntry) ?? null;
     writeLifecycleLog("Spawning worker", { workerEntry });
+    // The supervisor has no console (launchers spawn it detached), so Windows allocates a fresh
+    // one for a worker spawned without windowsHide. That console is a visible Windows Terminal
+    // window, and it stays up for the daemon's whole lifetime. @types/node leaves windowsHide
+    // out of ForkOptions; fork() forwards it to spawn() regardless.
     if (spawnSpec) {
       child = spawn(spawnSpec.command, spawnSpec.args, {
         stdio: ["inherit", "pipe", "pipe", "ipc"],
         env: spawnSpec.env ?? workerEnv,
+        windowsHide: true,
       });
     } else {
-      child = fork(workerEntry, workerArgs, {
+      const workerForkOptions: ForkOptions & { windowsHide: boolean } = {
         stdio: ["inherit", "pipe", "pipe", "ipc"],
         env: workerEnv,
         execArgv: workerExecArgv,
-      });
+        windowsHide: true,
+      };
+      child = fork(workerEntry, workerArgs, workerForkOptions);
     }
 
     const currentChild = child;
