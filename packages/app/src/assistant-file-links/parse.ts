@@ -1,4 +1,5 @@
 import { stripPosixDrivePrefix } from "@getpaseo/protocol/path-utils";
+import { ASSISTANT_FILE_EXTENSIONS } from "./extensions";
 import { isAbsolutePath } from "@/utils/path";
 
 function safeDecodeURIComponent(value: string): string {
@@ -21,66 +22,10 @@ const INLINE_LINE_FRAGMENT = /^L([0-9]+)(?:C[0-9]+)?(?:-L?([0-9]+)(?:C[0-9]+)?)?
 const INLINE_COLON_LINE_SUFFIX = /^(.+?):([0-9]+)(?::[0-9]+)?(?:-([0-9]+)(?::[0-9]+)?)?$/;
 const INLINE_PAREN_LINE_SUFFIX = /^(.+?)\(([0-9]+)(?:,[0-9]+)?(?:-([0-9]+)(?:,[0-9]+)?)?\)$/;
 const INLINE_WORD_LINE_SUFFIX = /^(.+?)\s+lines?\s+([0-9]+)(?:-([0-9]+))?$/i;
-const ASSISTANT_FILE_EXTENSIONS = new Set([
-  "astro",
-  "bash",
-  "c",
-  "cc",
-  "cjs",
-  "cpp",
-  "cs",
-  "css",
-  "cts",
-  "cxx",
-  "env",
-  "fish",
-  "go",
-  "gql",
-  "gradle",
-  "graphql",
-  "h",
-  "hpp",
-  "htm",
-  "html",
-  "ini",
-  "java",
-  "js",
-  "json",
-  "jsonc",
-  "jsx",
-  "kt",
-  "kts",
-  "less",
-  "lock",
-  "lua",
-  "md",
-  "mdx",
-  "mjs",
-  "mts",
-  "php",
-  "proto",
-  "py",
-  "rb",
-  "rs",
-  "sass",
-  "scss",
-  "sh",
-  "sql",
-  "svelte",
-  "swift",
-  "toml",
-  "ts",
-  "tsx",
-  "txt",
-  "vue",
-  "xml",
-  "yaml",
-  "yml",
-  "zsh",
-]);
-
 export interface AssistantHrefParseOptions {
   workspaceRoot?: string;
+  /** Authored links identify a file; only inferred text needs filename heuristics. */
+  explicitLink?: boolean;
   /**
    * True only when `value` is a markdown href — the renderer percent-encodes
    * non-ASCII and space characters, so the path must be decoded. Raw path
@@ -292,7 +237,7 @@ export function classifyAssistantFileLink(
     return null;
   }
 
-  if (isAmbiguousWorkspaceCandidate(trimmed, target, options)) {
+  if (!options.explicitLink && isAmbiguousWorkspaceCandidate(trimmed, target, options)) {
     return {
       kind: "ambiguousFileCandidate",
       target,
@@ -336,6 +281,7 @@ export function parseAssistantFileLink(
   const relativeTarget = parseWorkspaceRelativeFileLink(trimmed, {
     workspaceRoot: options.workspaceRoot,
     decodeHref: options.decodeHref,
+    explicitLink: options.explicitLink,
   });
   if (relativeTarget) {
     return relativeTarget;
@@ -469,7 +415,7 @@ function parseWorkspaceRelativeFileLink(
 
 function parseLocalPathParts(
   value: string,
-  options: Pick<AssistantHrefParseOptions, "decodeHref"> = {},
+  options: Pick<AssistantHrefParseOptions, "decodeHref" | "explicitLink"> = {},
 ): {
   path: string;
   lines: Pick<InlinePathTarget, "lineStart" | "lineEnd">;
@@ -495,7 +441,7 @@ function parseLocalPathParts(
     if (options.decodeHref) {
       pathPart = safeDecodeURIComponent(pathPart);
     }
-    if (!isPlausibleAssistantLocalPath(pathPart)) {
+    if (!options.explicitLink && !isPlausibleAssistantLocalPath(pathPart)) {
       return null;
     }
     return {
@@ -516,7 +462,7 @@ function parseLocalPathParts(
     decodedBeforeHash = safeDecodeURIComponent(beforeHash);
   }
   const plausiblePath = parseInlinePathToken(decodedBeforeHash)?.path ?? decodedBeforeHash;
-  if (!isPlausibleAssistantLocalPath(plausiblePath)) {
+  if (!options.explicitLink && !isPlausibleAssistantLocalPath(plausiblePath)) {
     return null;
   }
 
